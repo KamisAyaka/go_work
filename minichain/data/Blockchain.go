@@ -48,22 +48,34 @@ func (c *BlockChain) GetNewestBlock() *Block {
 
 func (c *BlockChain) GenesisTransaction() []Transaction {
 	outUTXOs := make([]*UTXO, len(c.accounts))
+	// 向新创建的账户添加UTXO
 	for i := 0; i < len(outUTXOs); i++ {
 		outUTXOs[i] = NewUTXO(c.accounts[i].GetWalletAddress(), config.MiniChainConfig.GetInitAmount(), c.accounts[i].GetPublicKey())
 	}
 	c.ProcessTransactionUTXO([]*UTXO{}, outUTXOs)
+	// 在创世纪块中添加交易记录
 	daydreamPrivateKey, daydreamPublicKey := utils.Secp256k1Generate()
 	sign := utils.Signature([]byte("I am the creator of this blockchain"), daydreamPrivateKey)
-	return []Transaction{
-		*NewTransaction(make([]*UTXO, 0), outUTXOs, sign, daydreamPublicKey)}
+	return []Transaction{*NewTransaction(make([]*UTXO, 0), outUTXOs, sign, daydreamPublicKey)}
 }
 
+// ProcessTransactionUTXO 处理交易中的未花费交易输出（UTXO）。
+// 该函数会将输入的 UTXO 标记为已使用，并将输出的 UTXO 添加到区块链中。
+//
+// 参数:
+// - inUTXO: 表示交易中作为输入的 UTXO 列表，这些 UTXO 将被标记为已使用。
+// - outUTXO: 表示交易中作为输出的 UTXO 列表，这些 UTXO 将被添加到区块链中。
 func (c *BlockChain) ProcessTransactionUTXO(inUTXO []*UTXO, outUTXO []*UTXO) {
+	// 加锁以确保并发安全，防止多个线程同时修改区块链状态。
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	// 遍历输入的 UTXO 列表，将每个 UTXO 标记为已使用。
 	for _, utxo := range inUTXO {
 		utxo.SetUsed()
 	}
+
+	// 遍历输出的 UTXO 列表，将每个 UTXO 添加到区块链中。
 	for _, utxo := range outUTXO {
 		c.AddUTXO(utxo)
 	}

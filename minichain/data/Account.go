@@ -21,20 +21,22 @@ func NewAccount() *Account {
 }
 
 func (a *Account) GetWalletAddress() string {
+	// 公钥哈希：ripemd160(sha256(publicKey))
 	publicKey := a.GetPublicKey()
 	publicKeyBytes := elliptic.Marshal(publicKey, publicKey.X, publicKey.Y)
 	publicKeyHash := utils.Ripemd160Digest(utils.Sha256Digest(publicKeyBytes))
-
+	// 0x0 + 公钥哈希
 	data := make([]byte, 1+len(publicKeyHash))
 	data = append(data, 0)
 	data = append(data, publicKeyHash...)
-	doubleHash := utils.Sha256Digest(utils.Sha256Digest(data))
 
+	// 0x0 + 公钥哈希 + 校验(两次哈希取前四个字节)
+	doubleHash := utils.Sha256Digest(utils.Sha256Digest(data))
 	wallEncoded := make([]byte, 1+len(publicKeyHash)+4)
 	wallEncoded = append(wallEncoded, 0)
 	wallEncoded = append(wallEncoded, publicKeyHash...)
 	wallEncoded = append(wallEncoded, doubleHash[:4]...)
-
+	// base58编码得到钱包地址
 	b := utils.NewBase58Util()
 	walletAddress := b.Encode(wallEncoded)
 	return walletAddress

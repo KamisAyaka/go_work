@@ -34,14 +34,15 @@ func GetOneTransaction(blockchain *data.BlockChain) *data.Transaction {
 	aWalletAddress := aAccount.GetWalletAddress()
 	aTrueUTXOs := blockchain.GetTrueUTXOs(aWalletAddress)
 
-	// 构造输入UTXO（假设账户A有足够UTXO）
+	// 构造输入UTXO
 	inUTXOs := aTrueUTXOs[:1] // 取第一个可用UTXO
 
 	// 构造输出UTXO：1000 BTC给B，剩余找零给A（假设输入UTXO总金额>=1000）
 	outUTXOs := []*data.UTXO{
 		data.NewUTXO(bAccount.GetWalletAddress(), 1000, bAccount.GetPublicKey()),
 	}
-	if inAmount := aAccount.GetAmount(inUTXOs); inAmount > 1000 {
+	inAmount := aAccount.GetAmount(inUTXOs)
+	if inAmount > 1000 {
 		outUTXOs = append(outUTXOs,
 			data.NewUTXO(aWalletAddress, inAmount-1000, aAccount.GetPublicKey()))
 	}
