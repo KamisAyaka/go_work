@@ -1,28 +1,133 @@
-# Go-MiniChain
-### 实验一： 区块链系统简单实现
+# Go-MiniChain 区块链系统
 
-#### 一、简介
+一个基于Golang实现的简易区块链系统，模拟比特币的核心机制，包含区块链构建、交易处理、工作量证明（PoW）共识机制等功能。
 
-​	**本实验将参考比特币中的区块结构，使用Golang程序设计语言实现一个简单的区块链系统，以帮助读者更好地理解区块链的概念。本实验所实现的简易区块链系统名为minichain，该系统模拟比特币的挖矿过程，使用一个工作线程进行交易的打包、Merkle树根哈希值的计算以及相应的挖矿过程（随机替换nonce值，计算出满足挖矿难度条件的区块哈希值）。正确补全代码包中相应的功能函数后，运行主程序，minichain将产生新的区块。**
+## 项目概述
 
-#### 二、TODO
+### 核心特性
+- **区块链结构**  
+  - 包含区块头（版本号/前序哈希/Merkle根/时间戳/难度值/nonce）
+  - 区块体存储交易数据并计算Merkle树根哈希
+- **共识机制**  
+  - 矿工节点通过随机nonce计算满足难度条件的区块哈希
+  - 支持动态调整挖矿难度（默认前导4个零）
+- **交易系统**  
+  - UTXO模型实现交易验证
+  - ECDSA签名保障交易安全
+- **账户体系**  
+  - 基于secp256k1的非对称加密生成账户
+  - Base58编码生成钱包地址
+- **网络模块**  
+  - 交易池自动生成随机交易
+  - 多账户间模拟转账行为
 
-​	在`consensus/MinerNode.go`中有三个`todo`
+### 项目结构
+```
+minichain/
+├── config/                # 系统配置
+│   └── config.go
+├── data/                  # 数据结构模型
+│   ├── Account.go
+│   ├── Block.go
+│   ├── BlockBody.go
+│   ├── BlockChain.go
+│   ├── BlockHeader.go
+│   ├── Transaction.go
+│   ├── TransactionPool.go
+│   └── UTXO.go
+├── consensus/             # 共识机制
+│   └── MinerNode.go
+├── network/               # 网络层
+│   └── Network.go
+├── utils/                 # 工具类
+│   ├── Base58Util.go
+│   ├── MinerUtil.go
+│   ├── SecurityUtil.go
+│   └── SHA256Util.go
+└── main.go                # 程序入口
+```
 
-- `getBlockBody`
-  - 根据传入的参数中的交易，构造并返回一个相应的区块体对象，还需要根据这些交易计算Merkle树的根哈希值
+## 快速开始
 
-- `mine`
-  - 在循环中完成"挖矿"操作，其实就是通过不断的变换区块中的nonce字段，直至区块的哈希值满足难度条件，即可将该区块加入区块链中
-- `getBlock()`
-  - 该方法供mine方法调用，构造一个区块头对象，然后用一个区块对象组合区块头和区块体
+### 环境要求
+- Go 1.18+
+- 第三方依赖：`github.com/dustinxie/ecc`
 
-#### 三、运行
+### 运行步骤
+1. 安装依赖
+```bash
+go mod tidy
+```
 
-- 在Goland下直接在`main.go`中运行main即可
+2. 启动区块链网络
+```bash
+go run main.go
+```
 
-- 在命令行下
+### 预期输出示例
+```
+Create the genesis Block! 
+And the hash of genesis Block is : 0000A3D5..., you will see... 
 
-  ```
-  go run main.go
-  ```
+Mined a new Block! Previous Block Hash is: 0000A3D5...
+Block{
+  blockHeader=BlockHeader{version=1..., 
+  blockBody=BlockBody{merkleRootHash=...}
+}
+The sum of all amount 1000000
+```
+
+## 关键配置
+`config/config.go` 包含可调参数：
+```go
+var MiniChainConfig = Config{
+    difficulty:          4,       // 挖矿难度（前导零个数）
+    maxTransactionCount: 2,       // 每个区块最大交易数
+    nbAccount:           100,     // 系统初始账户数量
+    initAmount:          10000    // 初始账户金额
+}
+```
+
+## 实现细节
+
+### 核心算法
+1. **Merkle树构建**  
+   ```go
+   func (m *MinerNode) GetBlockBody(transactions []data.Transaction) data.BlockBody {
+       // 通过两两哈希合并生成Merkle根
+       for len(hashes) > 1 {
+          var newLevel []string
+          for i := 0; i < len(hashes); i += 2 {
+            pair := hashes[i]
+            if i+1 < len(hashes) {
+                pair += hashes[i+1]
+            }
+            newLevel = append(newLevel, utils.GetSha256Digest(pair))
+      }
+      hashes = newLevel
+    }
+    merkleRoot := hashes[0]
+  }
+   ```
+
+2. **工作量证明**  
+   ```go
+   func (m *MinerNode) Mine(blockBody data.BlockBody) {
+       for {
+           blockHash := utils.GetSha256Digest(block.ToString())
+           if strings.HasPrefix(blockHash, utils.HashPrefixTarget()) {
+               // 找到合法nonce值
+           }
+       }
+   }
+   ```
+
+3. **地址生成**  
+   ```go
+    publicKeyBytes := elliptic.Marshal(publicKey, publicKey.X, publicKey.Y)
+    hash160 := utils.Ripemd160Digest(utils.Sha256Digest(publicKeyBytes))
+    // Base58Check编码
+    versionPayload := append([]byte{0x00}, hash160...)
+    checksum := utils.Sha256Digest(utils.Sha256Digest(versionPayload))[:4]
+    return base58.Encode(append(versionPayload, checksum...))
+   ```

@@ -16,11 +16,6 @@ import (
  * 该线程的主要工作就是不断的进行交易打包、Merkle树根哈希值计算、构造区块，
  * 然后尝试使用不同的随机字段（nonce）进行区块的哈希值计算以生成新的区块添加到区块中
  *
- * 这里需要你实现的功能函数为：getBlockBody、mine和getBlock，具体的需求见上述方法前的注释，
- * 除此之外，该类中的其他方法、变量，以及其他类中的方法和变量，均无需修改，否则可能影响系统的正确运行
- *
- * 如有疑问，及时交流
- *
  */
 
 type MinerNode struct {
@@ -51,7 +46,6 @@ func (m *MinerNode) GetBlockBody(transactions []data.Transaction) data.BlockBody
 	if transactions == nil || len(transactions) > config.MiniChainConfig.GetMaxTransactionCount() {
 		panic("transactions can not be nil or be more than config.MaxTransactionCount")
 	}
-	// todo 这里计算merkle Root 并填入BlockBody
 	var hashes []string
 	for _, tx := range transactions {
 		hashes = append(hashes, utils.GetSha256Digest(tx.ToString()))
@@ -97,7 +91,6 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 			m.blockchain.AddNewBlock(*block)
 			break
 		} else {
-			// todo
 			// header := block.GetBlockHeader()
 			// header.SetNonce(header.GetNonce() + 1)
 			// block = data.NewBlock(header, blockBody)
@@ -107,7 +100,6 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 	}
 }
 func (m *MinerNode) GetBlock(blockBody data.BlockBody) *data.Block {
-	// todo
 	lastBlock := m.blockchain.GetNewestBlock()
 	if lastBlock == nil {
 		return nil
