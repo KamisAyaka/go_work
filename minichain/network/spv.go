@@ -4,6 +4,7 @@ import (
 	"Go-Minichain/data"
 	"Go-Minichain/spv"
 	"Go-Minichain/utils"
+	"fmt"
 )
 
 type SPVPeer struct {
@@ -56,7 +57,7 @@ func (p *SPVPeer) VerifyHeader() bool {
 	if len(transactions) == 0 {
 		return true
 	}
-
+	fmt.Println("Account[", p.account.GetWalletAddress(), "] began to verify the transaction...")
 	for _, transaction := range transactions {
 		if !p.Verify(transaction) {
 			return false

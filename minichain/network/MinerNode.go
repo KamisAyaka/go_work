@@ -27,7 +27,7 @@ func NewMinerNode(network *NetWork) *MinerNode {
 }
 func (m *MinerNode) Run() {
 	//m.transactionPool.Start()
-	for i := 0; i < 5; {
+	for i := 0; i < 3; {
 		if m.network.CheckTransactionIsFull() {
 			transactions := m.network.GetAllTransactions()
 			blockBody := m.GetBlockBody(transactions)
@@ -41,7 +41,7 @@ func (m *MinerNode) GetBlockBody(transactions []data.Transaction) data.BlockBody
 	if transactions == nil || len(transactions) > config.MiniChainConfig.GetMaxTransactionCount() {
 		panic("transactions can not be nil or be more than config.MaxTransactionCount")
 	}
-	var hashes []string
+	hashes := make([]string, 0)
 	for _, tx := range transactions {
 		hashes = append(hashes, utils.GetSha256Digest(tx.ToString()))
 	}
@@ -57,8 +57,7 @@ func (m *MinerNode) GetBlockBody(transactions []data.Transaction) data.BlockBody
 		}
 		hashes = newLevel
 	}
-	merkleRoot := hashes[0]
-	return *data.NewBlockBody(merkleRoot, transactions)
+	return *data.NewBlockBody(hashes[0], transactions)
 }
 
 /**
@@ -79,7 +78,7 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 		if strings.HasPrefix(blockHash, utils.HashPrefixTarget()) {
 			header := block.GetBlockHeader()
 			fmt.Println("Mined a new Block! Previous Block Hash is: " + header.GetPreBlockHash())
-			fmt.Println(block.ToString())
+			//fmt.Println(block.ToString())
 			fmt.Println("And the hash of this Block is : " + utils.GetSha256Digest(block.ToString()) +
 				", you will see the hash value in next Block's preBlockHash field.")
 			fmt.Println()
@@ -87,9 +86,6 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 			m.BroadCast(*block)
 			break
 		} else {
-			// header := block.GetBlockHeader()
-			// header.SetNonce(header.GetNonce() + 1)
-			// block = data.NewBlock(header, blockBody)
 			nonce := rand.Int63()
 			block.SetNonce(int64(nonce))
 		}
@@ -101,11 +97,10 @@ func (m *MinerNode) GetBlock(blockBody data.BlockBody) *data.Block {
 		return nil
 	} else {
 		preBlockHash := utils.GetSha256Digest(lastBlock.ToString())
-
 		header := data.NewBlockHeader(
 			preBlockHash,
 			blockBody.GetMerkleRootHash(),
-			0,
+			rand.Int63(),
 		)
 		return data.NewBlock(*header, blockBody)
 	}
@@ -169,10 +164,13 @@ func (m *MinerNode) GetProof(txHash string) spv.Proof {
 			}
 			parentHash := utils.GetSha256Digest(leftHash + rightHash)
 			newList = append(newList, parentHash)
+			// 如果某一个哈希值与路径哈希相同，则将另一个作为验证路径中的节点加入，同时记录偏向，并更新路径哈希
 			if pathTxHash == leftHash {
 				path = append(path, spv.NewNode(rightHash, spv.RIGHT))
+				pathTxHash = utils.GetSha256Digest(leftHash + rightHash)
 			} else if pathTxHash == rightHash {
 				path = append(path, spv.NewNode(leftHash, spv.LEFT))
+				pathTxHash = utils.GetSha256Digest(leftHash + rightHash)
 			}
 		}
 		hashList = newList
@@ -186,5 +184,5 @@ func (m *MinerNode) BroadCast(block data.Block) {
 	for _, spvPeer := range spvPeers {
 		spvPeer.Accept(block.GetBlockHeader())
 	}
-	fmt.Println("Broadcast block header to SPVPeers")
+	fmt.Println("All SPV Peer Accept Newest Block Header...")
 }

@@ -121,7 +121,6 @@ func (p *TransactionPool) GetNewTransaction() *data.Transaction {
 		p.network.ProcessTransactionUTXO(inUTXOs, outUTXOs)
 		break
 	}
-
 	return transaction
 }
 

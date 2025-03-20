@@ -1,31 +1,17 @@
-package main
+package producer
 
 import (
-	"Go-Minichain/consensus"
 	"Go-Minichain/data"
 	"Go-Minichain/network"
 	"Go-Minichain/utils"
-	"testing"
 )
 
-func TestUTXOtest(t *testing.T) {
-	UTXOtest()
-}
-
-func UTXOtest() {
-	blockchain := network.NewBlockChain()
-	transactionPool := data.NewTransactionPool(2, blockchain)
-
-	miner := consensus.NewMinerNode(transactionPool, blockchain)
-	transaction := GetOneTransaction(blockchain)
-	transactionPool.Put(*transaction)
-	miner.Run()
-
-}
-
 func GetOneTransaction(blockchain *network.BlockChain) *data.Transaction {
-	// 获取账户列表
-	accounts := blockchain.GetAccount()
+	// 获取网络实例
+	netInstance := network.NewNetWork()
+
+	// 调用 GetAccounts 方法时，确保传递正确的接收者实例
+	accounts := netInstance.GetAccounts()
 
 	// 明确指定账户A（索引1）和账户B（索引2）
 	aAccount := accounts[1]

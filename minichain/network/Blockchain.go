@@ -35,7 +35,7 @@ func (c *BlockChain) SetUp() {
 	body := c.network.miner.GetBlockBody(transactions)
 	genesisBlock := data.NewBlock(*header, body)
 	fmt.Println("Create the genesis Block! ")
-	fmt.Println("And the hash of genesis Block is : " + fmt.Sprint(utils.Sha256Digest([]byte(genesisBlock.ToString()))) +
+	fmt.Println("And the hash of genesis Block is : " + utils.GetSha256Digest(genesisBlock.ToString()) +
 		", you will see the hash value in next Block's preBlockHash field.")
 	fmt.Println()
 	c.AddNewBlock(*genesisBlock)

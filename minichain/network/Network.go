@@ -112,3 +112,7 @@ func (n *NetWork) BroadCast(block data.Block) {
 func (n *NetWork) GetProof(hash string) spv.Proof {
 	return n.miner.GetProof(hash)
 }
+
+func (n *NetWork) GetBlockchain() *BlockChain {
+	return n.blockchain
+}
