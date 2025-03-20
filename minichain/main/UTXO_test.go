@@ -3,6 +3,7 @@ package main
 import (
 	"Go-Minichain/consensus"
 	"Go-Minichain/data"
+	"Go-Minichain/network"
 	"Go-Minichain/utils"
 	"testing"
 )
@@ -12,7 +13,7 @@ func TestUTXOtest(t *testing.T) {
 }
 
 func UTXOtest() {
-	blockchain := data.NewBlockChain()
+	blockchain := network.NewBlockChain()
 	transactionPool := data.NewTransactionPool(2, blockchain)
 
 	miner := consensus.NewMinerNode(transactionPool, blockchain)
@@ -22,7 +23,7 @@ func UTXOtest() {
 
 }
 
-func GetOneTransaction(blockchain *data.BlockChain) *data.Transaction {
+func GetOneTransaction(blockchain *network.BlockChain) *data.Transaction {
 	// 获取账户列表
 	accounts := blockchain.GetAccount()
 

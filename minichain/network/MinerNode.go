@@ -1,12 +1,12 @@
-package consensus
+package network
 
 import (
 	"Go-Minichain/config"
 	"Go-Minichain/data"
+	"Go-Minichain/spv"
 	"Go-Minichain/utils"
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 )
 
@@ -19,26 +19,21 @@ import (
  */
 
 type MinerNode struct {
-	transactionPool *data.TransactionPool
-	blockchain      *data.BlockChain
+	network *NetWork
 }
 
-func NewMinerNode(pool *data.TransactionPool, chain *data.BlockChain) *MinerNode {
-	return &MinerNode{transactionPool: pool, blockchain: chain}
+func NewMinerNode(network *NetWork) *MinerNode {
+	return &MinerNode{network: network}
 }
 func (m *MinerNode) Run() {
-	m.transactionPool.Start()
-	for i := 0; i < 3; {
-		if m.transactionPool.IsFull() {
-			transactions := m.transactionPool.GetAll()
-			if !m.Check(transactions) {
-				fmt.Println("transactions is not valid")
-				os.Exit(0)
-			}
+	//m.transactionPool.Start()
+	for i := 0; i < 5; {
+		if m.network.CheckTransactionIsFull() {
+			transactions := m.network.GetAllTransactions()
 			blockBody := m.GetBlockBody(transactions)
 			m.Mine(blockBody)
 			i++
-			fmt.Println("The sum of all amount", m.blockchain.GetAllAmount())
+			fmt.Println("The sum of all amount", m.network.GetTotalAmount())
 		}
 	}
 }
@@ -88,7 +83,8 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 			fmt.Println("And the hash of this Block is : " + utils.GetSha256Digest(block.ToString()) +
 				", you will see the hash value in next Block's preBlockHash field.")
 			fmt.Println()
-			m.blockchain.AddNewBlock(*block)
+			m.network.AddNewBlock(*block)
+			m.BroadCast(*block)
 			break
 		} else {
 			// header := block.GetBlockHeader()
@@ -100,7 +96,7 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 	}
 }
 func (m *MinerNode) GetBlock(blockBody data.BlockBody) *data.Block {
-	lastBlock := m.blockchain.GetNewestBlock()
+	lastBlock := m.network.GetNewestBlock()
 	if lastBlock == nil {
 		return nil
 	} else {
@@ -125,4 +121,70 @@ func (m *MinerNode) Check(transactions []data.Transaction) bool {
 		}
 	}
 	return true
+}
+
+func (m *MinerNode) GetProof(txHash string) spv.Proof {
+	proofHeight := -1
+	flag := false
+	proofBlock := *new(data.Block)
+	for _, block := range m.network.GetBlocks() {
+		proofHeight++
+		blockBody := block.GetBlockBody()
+		for _, tx := range blockBody.GetTransctions() {
+			// 计算当前交易的哈希值进行比对
+			if utils.GetSha256Digest(tx.ToString()) == txHash {
+				flag = true
+				proofBlock = block
+				break // 找到交易后立即跳出循环
+			}
+		}
+		if flag {
+			break
+		}
+	}
+	if !flag {
+		fmt.Println("The transaction is not in the blockchain")
+		return spv.Proof{}
+	}
+
+	path := make([]spv.Node, 0)
+	hashList := make([]string, 0)
+	pathTxHash := txHash
+	blockBody := proofBlock.GetBlockBody()
+	for _, transaction := range blockBody.GetTransctions() {
+		hashList = append(hashList, utils.GetSha256Digest(transaction.ToString()))
+	}
+	for {
+		if len(hashList) == 1 {
+			break
+		}
+		newList := make([]string, 0)
+		for i := 0; i < len(hashList); i += 2 {
+			leftHash := hashList[i]
+			rightHash := ""
+			if i+1 < len(hashList) {
+				rightHash = hashList[i+1]
+			} else {
+				rightHash = leftHash
+			}
+			parentHash := utils.GetSha256Digest(leftHash + rightHash)
+			newList = append(newList, parentHash)
+			if pathTxHash == leftHash {
+				path = append(path, spv.NewNode(rightHash, spv.RIGHT))
+			} else if pathTxHash == rightHash {
+				path = append(path, spv.NewNode(leftHash, spv.LEFT))
+			}
+		}
+		hashList = newList
+	}
+	ProofMerkleHash := hashList[0]
+	return *spv.NewProof(txHash, ProofMerkleHash, proofHeight, path)
+}
+
+func (m *MinerNode) BroadCast(block data.Block) {
+	spvPeers := m.network.GetSPVPeers()
+	for _, spvPeer := range spvPeers {
+		spvPeer.Accept(block.GetBlockHeader())
+	}
+	fmt.Println("Broadcast block header to SPVPeers")
 }

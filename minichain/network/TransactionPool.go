@@ -1,6 +1,7 @@
-package data
+package network
 
 import (
+	"Go-Minichain/data"
 	"Go-Minichain/utils"
 	"crypto/elliptic"
 	"math/rand"
@@ -11,28 +12,28 @@ import (
  */
 
 type TransactionPool struct {
-	transactions []Transaction
+	transactions []data.Transaction
 	capacity     int
-	blockchain   *BlockChain
+	network      *NetWork
 }
 
-func NewTransactionPool(c int, chain *BlockChain) *TransactionPool {
+func NewTransactionPool(c int, network *NetWork) *TransactionPool {
 	p := new(TransactionPool)
 	p.capacity = c
-	p.transactions = make([]Transaction, 0)
-	p.blockchain = chain
+	p.transactions = make([]data.Transaction, 0)
+	p.network = network
 	return p
 }
-func (p *TransactionPool) Put(transaction Transaction) {
+func (p *TransactionPool) Put(transaction data.Transaction) {
 	p.transactions = append(p.transactions, transaction)
 }
-func (p *TransactionPool) GetAll() []Transaction {
+func (p *TransactionPool) GetAll() []data.Transaction {
 	transactions := p.transactions
 	p.clear()
 	return transactions
 }
 func (p *TransactionPool) clear() {
-	p.transactions = make([]Transaction, 0)
+	p.transactions = make([]data.Transaction, 0)
 }
 func (p *TransactionPool) IsFull() bool {
 	return len(p.transactions) >= p.capacity
@@ -53,9 +54,9 @@ func (p *TransactionPool) GetCapacity() int {
 //
 // 返回值:
 // - *Transaction: 指向新创建的交易对象的指针。
-func (p *TransactionPool) GetNewTransaction() *Transaction {
-	accounts := p.blockchain.GetAccount() // 获取区块链中的所有账户
-	var transaction *Transaction
+func (p *TransactionPool) GetNewTransaction() *data.Transaction {
+	accounts := p.network.GetAccounts() // 获取区块链中的所有账户
+	var transaction *data.Transaction
 
 	for {
 		// 随机选择两个不同的账户作为交易的发送方和接收方
@@ -71,7 +72,7 @@ func (p *TransactionPool) GetNewTransaction() *Transaction {
 		bWalletAddress := bAccount.GetWalletAddress()
 
 		// 获取发送方的有效未花费交易输出（UTXO）并计算其总金额
-		aTrueUTXOs := p.blockchain.GetTrueUTXOs(aWalletAddress)
+		aTrueUTXOs := p.network.GetTrueUTXOs(aWalletAddress)
 		aAmount := aAccount.GetAmount(aTrueUTXOs)
 
 		if aAmount == 0 {
@@ -80,8 +81,8 @@ func (p *TransactionPool) GetNewTransaction() *Transaction {
 
 		// 随机生成交易金额，并初始化输入和输出UTXO列表
 		txAmount := rand.Intn(aAmount) + 1
-		inUTXOs := make([]*UTXO, 0)
-		outUTXOs := make([]*UTXO, 0)
+		inUTXOs := make([]*data.UTXO, 0)
+		outUTXOs := make([]*data.UTXO, 0)
 
 		// 使用发送方的私钥对其公钥进行签名，用于解锁UTXO
 		publicKey := aAccount.GetPublicKey()
@@ -105,20 +106,19 @@ func (p *TransactionPool) GetNewTransaction() *Transaction {
 		}
 
 		// 创建接收方的输出UTXO
-		outUTXOs = append(outUTXOs, NewUTXO(bWalletAddress, txAmount, bAccount.GetPublicKey()))
+		outUTXOs = append(outUTXOs, data.NewUTXO(bWalletAddress, txAmount, bAccount.GetPublicKey()))
 
 		// 如果输入金额大于交易金额，则创建找零的输出UTXO
 		if inAmount > txAmount {
-			outUTXOs = append(outUTXOs, NewUTXO(aWalletAddress, inAmount-txAmount, aAccount.GetPublicKey()))
+			outUTXOs = append(outUTXOs, data.NewUTXO(aWalletAddress, inAmount-txAmount, aAccount.GetPublicKey()))
 		}
 
 		// 将输入和输出UTXO序列化，并使用发送方的私钥对交易数据进行签名
-		data := UTXO2Bytes(inUTXOs, outUTXOs)
-		sign := utils.Signature(data, aAccount.GetPrivateKey())
+		sign := utils.Signature(data.UTXO2Bytes(inUTXOs, outUTXOs), aAccount.GetPrivateKey())
 
 		// 创建交易对象，并更新区块链的UTXO池
-		transaction = NewTransaction(inUTXOs, outUTXOs, sign, aAccount.GetPublicKey())
-		p.blockchain.ProcessTransactionUTXO(inUTXOs, outUTXOs)
+		transaction = data.NewTransaction(inUTXOs, outUTXOs, sign, aAccount.GetPublicKey())
+		p.network.ProcessTransactionUTXO(inUTXOs, outUTXOs)
 		break
 	}
 
