@@ -4,16 +4,9 @@ import (
 	"strings"
 )
 
-/**
- * 对区块体的抽象，主要有两个字段：
- *    transactions: 从交易池中取得的一批次交易
- *
- *    merkleRootHash: 使用上述交易，计算得到的Merkle树根哈希值
- */
-
 type BlockBody struct {
-	transactions   []Transaction
-	merkleRootHash string
+	transactions   []Transaction // 从交易池中取得的一批次交易
+	merkleRootHash string        //使用上述交易，计算得到的Merkle树根哈希值
 }
 
 func NewBlockBody(merkleRootHash string, transactions []Transaction) *BlockBody {

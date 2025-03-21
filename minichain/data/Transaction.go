@@ -14,7 +14,6 @@ import (
  */
 
 type Transaction struct {
-	//data          string
 	timestamp     int
 	inUTXO        []*UTXO
 	outUTXO       []*UTXO

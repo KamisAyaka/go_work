@@ -30,7 +30,7 @@ func (c *Config) GetInitAmount() int {
 }
 
 var MiniChainConfig = Config{
-	difficulty:          3,
+	difficulty:          4,
 	maxTransactionCount: 16,
 	nbAccount:           100,
 	initAmount:          10000,

@@ -7,6 +7,7 @@ import (
 	"Go-Minichain/utils"
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 )
 
@@ -18,18 +19,32 @@ import (
  *
  */
 
+// MinerNode 定义了一个矿工节点的结构体。
+// 字段说明：
+// - network: 网络对象，用于与区块链网络交互。
 type MinerNode struct {
 	network *NetWork
 }
 
+// NewMinerNode 创建一个新的矿工节点实例。
+// 参数:
+// - network: 网络对象，用于初始化矿工节点。
+// 返回值:
+// 返回一个指向新创建的矿工节点实例的指针。
 func NewMinerNode(network *NetWork) *MinerNode {
 	return &MinerNode{network: network}
 }
+
+// Run 启动矿工节点的工作流程。
+// 该方法会不断检查交易池是否已满，如果已满则打包交易、生成区块并广播到网络中。
 func (m *MinerNode) Run() {
-	//m.transactionPool.Start()
 	for i := 0; i < 3; {
 		if m.network.CheckTransactionIsFull() {
 			transactions := m.network.GetAllTransactions()
+			if !m.Check(transactions) {
+				fmt.Println("The transaction is not in the blockchain")
+				os.Exit(0)
+			}
 			blockBody := m.GetBlockBody(transactions)
 			m.Mine(blockBody)
 			i++
@@ -37,6 +52,12 @@ func (m *MinerNode) Run() {
 		}
 	}
 }
+
+// GetBlockBody 根据交易列表生成区块体。
+// 参数:
+// - transactions: 包含所有交易的列表。
+// 返回值:
+// 返回一个包含 Merkle 树根哈希和交易列表的区块体对象。
 func (m *MinerNode) GetBlockBody(transactions []data.Transaction) data.BlockBody {
 	if transactions == nil || len(transactions) > config.MiniChainConfig.GetMaxTransactionCount() {
 		panic("transactions can not be nil or be more than config.MaxTransactionCount")
@@ -60,17 +81,9 @@ func (m *MinerNode) GetBlockBody(transactions []data.Transaction) data.BlockBody
 	return *data.NewBlockBody(hashes[0], transactions)
 }
 
-/**
- * 该方法供mine方法调用，其功能为根据传入的区块体参数，构造一个区块对象返回，
- * 也就是说，你需要构造一个区块头对象，然后用一个区块对象组合区块头和区块体
- *
- * 建议查看BlockHeader类中的字段和注释，有助于你实现该方法
- *
- * @param blockBody 区块体
- *
- * @return 相应的区块对象
- */
-
+// Mine 尝试挖矿，生成新的区块。
+// 参数:
+// - blockBody: 区块体对象，包含交易信息和 Merkle 树根哈希。
 func (m *MinerNode) Mine(blockBody data.BlockBody) {
 	block := m.GetBlock(blockBody)
 	for {
@@ -78,7 +91,6 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 		if strings.HasPrefix(blockHash, utils.HashPrefixTarget()) {
 			header := block.GetBlockHeader()
 			fmt.Println("Mined a new Block! Previous Block Hash is: " + header.GetPreBlockHash())
-			//fmt.Println(block.ToString())
 			fmt.Println("And the hash of this Block is : " + utils.GetSha256Digest(block.ToString()) +
 				", you will see the hash value in next Block's preBlockHash field.")
 			fmt.Println()
@@ -91,6 +103,12 @@ func (m *MinerNode) Mine(blockBody data.BlockBody) {
 		}
 	}
 }
+
+// GetBlock 根据区块体生成一个完整的区块对象。
+// 参数:
+// - blockBody: 区块体对象。
+// 返回值:
+// 返回一个包含区块头和区块体的完整区块对象。
 func (m *MinerNode) GetBlock(blockBody data.BlockBody) *data.Block {
 	lastBlock := m.network.GetNewestBlock()
 	if lastBlock == nil {
@@ -106,6 +124,11 @@ func (m *MinerNode) GetBlock(blockBody data.BlockBody) *data.Block {
 	}
 }
 
+// Check 验证交易的有效性。
+// 参数:
+// - transactions: 包含所有交易的列表。
+// 返回值:
+// 返回布尔值，表示交易是否通过验证。
 func (m *MinerNode) Check(transactions []data.Transaction) bool {
 	for _, transactions := range transactions {
 		data := data.UTXO2Bytes(transactions.GetInUTXOs(), transactions.GetOutUTXOs())
@@ -118,6 +141,11 @@ func (m *MinerNode) Check(transactions []data.Transaction) bool {
 	return true
 }
 
+// GetProof 根据交易哈希生成一个简化的支付验证（SPV）证明。
+// 参数:
+// - txHash: 交易的哈希值，用于定位区块链中对应的交易。
+// 返回值:
+// 返回一个 spv.Proof 类型的证明对象，包含交易的 Merkle 路径信息。
 func (m *MinerNode) GetProof(txHash string) spv.Proof {
 	proofHeight := -1
 	flag := false
@@ -126,7 +154,7 @@ func (m *MinerNode) GetProof(txHash string) spv.Proof {
 		proofHeight++
 		blockBody := block.GetBlockBody()
 		for _, tx := range blockBody.GetTransctions() {
-			// 计算当前交易的哈希值进行比对
+			// 计算当前交易的哈希值并与传入的 txHash 进行比对，找到匹配的交易。
 			if utils.GetSha256Digest(tx.ToString()) == txHash {
 				flag = true
 				proofBlock = block
@@ -142,6 +170,7 @@ func (m *MinerNode) GetProof(txHash string) spv.Proof {
 		return spv.Proof{}
 	}
 
+	// 构建 Merkle 路径。
 	path := make([]spv.Node, 0)
 	hashList := make([]string, 0)
 	pathTxHash := txHash
@@ -164,7 +193,8 @@ func (m *MinerNode) GetProof(txHash string) spv.Proof {
 			}
 			parentHash := utils.GetSha256Digest(leftHash + rightHash)
 			newList = append(newList, parentHash)
-			// 如果某一个哈希值与路径哈希相同，则将另一个作为验证路径中的节点加入，同时记录偏向，并更新路径哈希
+			// 如果某一个哈希值与路径哈希相同，则将另一个作为验证路径中的节点加入，
+			// 同时记录偏向，并更新路径哈希。
 			if pathTxHash == leftHash {
 				path = append(path, spv.NewNode(rightHash, spv.RIGHT))
 				pathTxHash = utils.GetSha256Digest(leftHash + rightHash)
@@ -175,10 +205,14 @@ func (m *MinerNode) GetProof(txHash string) spv.Proof {
 		}
 		hashList = newList
 	}
+	// 最终的 Merkle 根哈希值。
 	ProofMerkleHash := hashList[0]
 	return *spv.NewProof(txHash, ProofMerkleHash, proofHeight, path)
 }
 
+// BroadCast 广播新区块的区块头到所有 SPV 节点。
+// 参数:
+// - block: 新生成的区块。
 func (m *MinerNode) BroadCast(block data.Block) {
 	spvPeers := m.network.GetSPVPeers()
 	for _, spvPeer := range spvPeers {
